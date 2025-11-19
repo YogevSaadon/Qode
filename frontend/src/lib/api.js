@@ -5,7 +5,7 @@
 import axios from 'axios';
 
 // API base URL - can be overridden via environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.11:8000';
 
 // Create axios instance with default config
 const api = axios.create({

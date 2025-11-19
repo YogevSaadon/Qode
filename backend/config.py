@@ -14,13 +14,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "Qode"
     DEBUG: bool = True
 
-    # CORS
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",  # Vite default dev server
-        "http://localhost:3000",  # Alternative React dev server
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ]
+    # CORS - Allow all origins for local network testing
+    CORS_ORIGINS: List[str] = ["*"]
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./qode.db"

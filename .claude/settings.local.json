@@ -21,7 +21,15 @@
       "Bash(if exist frontendnode_modules.vite rmdir /S /Q frontendnode_modules.vite)",
       "Bash(taskkill /F /PID 22304 /T 2)",
       "Bash(taskkill /F /PID 42348 /T 2)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(del serviceseta_service.py)",
+      "Bash(taskkill:*)",
+      "Bash(if exist qode.db del /F qode.db)",
+      "Bash(if exist __pycache__ rmdir /S /Q __pycache__)",
+      "Bash(timeout 5 tail:*)",
+      "Bash(timeout 8 tail:*)",
+      "Bash(ipconfig:*)",
+      "Bash(timeout 2 tail:*)"
     ],
     "deny": [],
     "ask": []

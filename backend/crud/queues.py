@@ -23,15 +23,16 @@ async def create_queue(
 
     Returns:
         Created Queue instance
+
+    Note:
+        All default values (active, is_paused, current_position,
+        last_number_issued, avg_wait_time, completed_count) are
+        handled by SQLAlchemy model defaults in models.py.
+        This enforces Single Source of Truth.
     """
     queue = Queue(
         name=name,
-        host_token=host_token,
-        active=True,
-        is_paused=False,
-        current_position=0,
-        last_number_issued=0,
-        avg_wait_time=0  # 0 = Calculating...
+        host_token=host_token
     )
 
     db.add(queue)

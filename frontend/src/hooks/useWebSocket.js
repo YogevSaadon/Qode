@@ -20,7 +20,7 @@ const useWebSocket = (queueId) => {
 
     // Determine WebSocket URL based on environment
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = import.meta.env.VITE_WS_URL || 'localhost:8000';
+    const host = import.meta.env.VITE_WS_URL || '192.168.1.11:8000';
     const wsUrl = `${protocol}//${host}/api/ws/${queueId}`;
 
     console.log(`[WS] Connecting to ${wsUrl}...`);
