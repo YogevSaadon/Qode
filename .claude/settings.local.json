@@ -7,7 +7,10 @@
       "Bash(python:*)",
       "Bash(curl:*)",
       "Bash(npm run dev:*)",
-      "Bash(if exist qode.db del qode.db)"
+      "Bash(if exist qode.db del qode.db)",
+      "Bash(if exist c:ProjectsQodebackendqode.db del c:ProjectsQodebackendqode.db)",
+      "Bash(timeout 3 tail:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []
