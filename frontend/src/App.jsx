@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import HealthCheck from './components/HealthCheck';
 import HostDashboard from './pages/HostDashboard';
 import GuestView from './pages/GuestView';
+import PrintQR from './pages/PrintQR';
 
 function Home() {
   return (
@@ -81,6 +82,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/host" element={<HostDashboard />} />
         <Route path="/join/:queueId" element={<GuestView />} />
+        <Route path="/print-qr/:queueId" element={<PrintQR />} />
       </Routes>
     </Router>
   );

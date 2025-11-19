@@ -222,6 +222,12 @@ const HostDashboard = () => {
     }
   };
 
+  const handlePrintQR = () => {
+    // Open print-friendly page in new window
+    const printUrl = `/print-qr/${queueData.id}?name=${encodeURIComponent(queueData.name)}`;
+    window.open(printUrl, '_blank');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -293,7 +299,15 @@ const HostDashboard = () => {
             </div>
 
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">QR Code Entry Point</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">QR Code Entry Point</h3>
+                <button
+                  onClick={handlePrintQR}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-semibold"
+                >
+                  🖨️ Print QR Code
+                </button>
+              </div>
               <p className="text-sm text-gray-600 mb-4">
                 Display this QR code at your booth for guests to scan and join the queue.
               </p>
