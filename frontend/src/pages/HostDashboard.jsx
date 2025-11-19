@@ -79,7 +79,7 @@ const HostDashboard = () => {
       // Clear invalid data
       localStorage.removeItem('qode_queue_id');
       localStorage.removeItem('qode_host_token');
-      setError('Failed to load saved queue. Please create a new one.');
+      // Don't show error - just silently clear and let user create new queue
     } finally {
       setIsLoading(false);
     }

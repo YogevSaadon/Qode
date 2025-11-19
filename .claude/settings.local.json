@@ -10,7 +10,18 @@
       "Bash(if exist qode.db del qode.db)",
       "Bash(if exist c:ProjectsQodebackendqode.db del c:ProjectsQodebackendqode.db)",
       "Bash(timeout 3 tail:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(dir:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(if exist backendqode.db del /F backendqode.db)",
+      "Bash(if exist backend__pycache__ rmdir /S /Q backend__pycache__)",
+      "Bash(if exist backendcrud__pycache__ rmdir /S /Q backendcrud__pycache__)",
+      "Bash(if exist backendservices__pycache__ rmdir /S /Q backendservices__pycache__)",
+      "Bash(if exist frontendnode_modules.vite rmdir /S /Q frontendnode_modules.vite)",
+      "Bash(taskkill /F /PID 22304 /T 2)",
+      "Bash(taskkill /F /PID 42348 /T 2)",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []

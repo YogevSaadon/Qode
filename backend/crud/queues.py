@@ -31,7 +31,7 @@ async def create_queue(
         is_paused=False,
         current_position=0,
         last_number_issued=0,
-        avg_wait_time=300  # Default 5 minutes
+        avg_wait_time=0  # 0 = Calculating...
     )
 
     db.add(queue)
