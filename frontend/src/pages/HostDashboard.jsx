@@ -293,7 +293,9 @@ const HostDashboard = () => {
                   Avg Wait Time
                 </div>
                 <div className="text-3xl font-bold text-orange-900">
-                  {Math.round(queueData.avg_wait_time / 60)}m
+                  {queueData.avg_wait_time === 0
+                    ? "Calculating..."
+                    : `${Math.round(queueData.avg_wait_time / 60)}m`}
                 </div>
               </div>
             </div>
