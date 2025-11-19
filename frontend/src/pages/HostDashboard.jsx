@@ -22,8 +22,31 @@ const HostDashboard = () => {
   // QR Scanner
   const [showScanner, setShowScanner] = useState(false);
 
-  // Check if user already has a queue in localStorage
+  // Mobile Pairing Modal
+  const [showPairingModal, setShowPairingModal] = useState(false);
+
+  // Check if user already has a queue in localStorage OR URL params (auto-login)
   useEffect(() => {
+    // PHASE 6: Auto-Login from URL Query Parameters
+    // Example: /host?token=abc123&id=queue-uuid
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const urlId = urlParams.get('id');
+
+    if (urlToken && urlId) {
+      // Save credentials to localStorage
+      localStorage.setItem('qode_queue_id', urlId);
+      localStorage.setItem('qode_host_token', urlToken);
+
+      // Clean URL for security (remove token from browser history)
+      window.history.replaceState({}, document.title, '/host');
+
+      // Load the queue
+      loadQueue(urlId, urlToken);
+      return;
+    }
+
+    // Otherwise, check localStorage
     const savedQueueId = localStorage.getItem('qode_queue_id');
     const savedHostToken = localStorage.getItem('qode_host_token');
 
@@ -304,6 +327,12 @@ const HostDashboard = () => {
               <h3 className="text-2xl font-bold text-gray-900">Waiting Tickets</h3>
               <div className="flex gap-2">
                 <button
+                  onClick={() => setShowPairingModal(true)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-semibold"
+                >
+                  📱 Pair Mobile Scanner
+                </button>
+                <button
                   onClick={() => setShowScanner(true)}
                   className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors font-semibold"
                 >
@@ -384,6 +413,57 @@ const HostDashboard = () => {
               onScan={handleScanQR}
               onClose={() => setShowScanner(false)}
             />
+          )}
+
+          {/* Mobile Pairing Modal */}
+          {showPairingModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">📱 Pair Mobile Scanner</h2>
+                  <button
+                    onClick={() => setShowPairingModal(false)}
+                    className="text-gray-500 hover:text-gray-700 text-3xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-900 mb-2">How to use Kiosk Mode:</h3>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Open the camera app on your phone</li>
+                    <li>Scan the QR code below</li>
+                    <li>Your phone will auto-login as a mobile scanner</li>
+                    <li>Use your phone to scan guest QR codes</li>
+                  </ol>
+                </div>
+
+                <div className="bg-white p-8 rounded-lg border-4 border-indigo-400 text-center">
+                  <QRCodeSVG
+                    value={`${window.location.origin}/host?token=${queueData.host_token}&id=${queueData.id}`}
+                    size={300}
+                    level="H"
+                    className="mx-auto"
+                  />
+                  <div className="mt-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded">
+                    <p className="text-sm font-semibold text-yellow-800">
+                      ⚠️ SECURITY WARNING
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      This QR code contains your host credentials. Only scan with YOUR devices.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowPairingModal(false)}
+                  className="w-full mt-6 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
