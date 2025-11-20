@@ -1,168 +1,323 @@
-import React, { useEffect, useState, useRef } from 'react';
+/**
+ * Guest View - Join Queue and Track Position
+ * Mobile-first interface for guests joining a queue.
+ */
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../lib/api';
 import useWebSocket from '../hooks/useWebSocket';
-import { Toaster, toast } from 'react-hot-toast';
 
-// --- UUID Polyfill for HTTP Contexts ---
+// UUID generator that works on HTTP (non-secure contexts)
 const generateUUID = () => {
-  // Try native crypto first if available
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    try {
-      return crypto.randomUUID();
-    } catch (e) {
-      console.warn('crypto.randomUUID failed, using fallback');
-    }
+    return crypto.randomUUID();
   }
-  // Fallback for non-secure HTTP
+  // Fallback for non-HTTPS contexts
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 };
-// ---------------------------------------
 
 const GuestView = () => {
   const { queueId } = useParams();
   const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Use ref to prevent double-join in StrictMode
+  // Real-time updates via WebSocket
+  const { lastMessage, connectionStatus } = useWebSocket(queueId);
+  const [currentPosition, setCurrentPosition] = useState(0);
+  const [avgWaitTime, setAvgWaitTime] = useState(0);
+
+  // Prevent double-join in React StrictMode (dev only)
   const hasJoined = useRef(false);
 
-  // WebSocket Connection
-  const { lastMessage, connectionStatus } = useWebSocket(queueId);
+  // Get or create device token
+  const getDeviceToken = () => {
+    let token = localStorage.getItem('qode_guest_token');
 
-  // Listen for real-time updates
+    if (!token) {
+      // Generate new UUID for this device
+      token = generateUUID();
+      localStorage.setItem('qode_guest_token', token);
+    }
+
+    return token;
+  };
+
+  // Join the queue
+  const joinQueue = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const deviceToken = getDeviceToken();
+
+      const response = await api.post(
+        `/api/queues/${queueId}/join`,
+        {},
+        {
+          headers: {
+            'x-device-token': deviceToken,
+          },
+        }
+      );
+
+      setTicket(response.data);
+    } catch (err) {
+      console.error('Failed to join queue:', err);
+
+      if (err.response?.status === 400) {
+        setError(err.response.data.detail || 'Queue is not available');
+      } else if (err.response?.status === 404) {
+        setError('Queue not found');
+      } else {
+        setError('Failed to join queue. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto-join on mount (with StrictMode guard)
   useEffect(() => {
-    if (lastMessage && lastMessage.type === 'queue_update' && ticket) {
-       fetchTicketStatus(ticket.id);
+    if (queueId && !hasJoined.current) {
+      hasJoined.current = true;
+      joinQueue();
+    } else if (!queueId) {
+      setError('Invalid queue link');
+      setIsLoading(false);
+    }
+  }, [queueId]);
+
+  // Handle WebSocket messages
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'queue_update') {
+      setCurrentPosition(lastMessage.current_position || 0);
+      setAvgWaitTime(lastMessage.avg_wait_time || 0);
     }
   }, [lastMessage]);
 
-  const fetchTicketStatus = async (ticketId) => {
-      try {
-          const response = await api.get(`/tickets/${ticketId}`);
-          setTicket(response.data);
-      } catch (err) {
-          console.error('Failed to update ticket:', err);
-      }
+  // Calculate ETA string
+  const calculateETA = () => {
+    if (!ticket) return '';
+
+    // If user's turn or past
+    if (ticket.position_number <= currentPosition) {
+      return "Your turn!";
+    }
+
+    // Cold start
+    if (avgWaitTime === 0) {
+      return "Calculating...";
+    }
+
+    // Calculate people ahead
+    const peopleAhead = ticket.position_number - currentPosition;
+
+    // Calculate total wait in seconds
+    const totalSeconds = peopleAhead * avgWaitTime;
+
+    // Convert to minutes (round up)
+    const minutes = Math.ceil(totalSeconds / 60);
+
+    if (minutes < 1) return "Less than 1 minute";
+    if (minutes === 1) return "About 1 minute";
+    if (minutes < 60) return `About ${minutes} minutes`;
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours === 1 && remainingMinutes === 0) return "About 1 hour";
+    if (remainingMinutes === 0) return `About ${hours} hours`;
+    return `About ${hours}h ${remainingMinutes}m`;
   };
 
-  // Initial Join
-  useEffect(() => {
-    const joinQueue = async () => {
-      if (hasJoined.current) return;
-      hasJoined.current = true;
+  // Calculate people ahead (with skipped detection)
+  const getPeopleAhead = () => {
+    if (!ticket) return 0;
+    const ahead = ticket.position_number - currentPosition;
+    return ahead; // Can be negative if skipped
+  };
 
-      try {
-        // 1. Get or Create Device Token
-        let deviceToken = localStorage.getItem('qode_guest_token');
-        if (!deviceToken) {
-          deviceToken = generateUUID();
-          localStorage.setItem('qode_guest_token', deviceToken);
-        }
+  // Check if user was skipped
+  const isSkipped = () => {
+    if (!ticket) return false;
+    return ticket.position_number < currentPosition;
+  };
 
-        // 2. Join API
-        const response = await api.post(`/queues/${queueId}/join`, {}, {
-          headers: { 'x-device-token': deviceToken }
-        });
+  // Status badge color
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'WAITING':
+        return 'bg-blue-100 text-blue-800';
+      case 'CALLED':
+        return 'bg-green-100 text-green-800 animate-pulse';
+      case 'SERVING':
+        return 'bg-purple-100 text-purple-800';
+      case 'COMPLETED':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
 
-        setTicket(response.data);
-        setLoading(false);
-        toast.success("You're in line!");
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Joining queue...</p>
+        </div>
+      </div>
+    );
+  }
 
-      } catch (err) {
-        console.error('Join Error:', err);
-        // Handle 'Already in queue' gracefully if backend sends specific code, otherwise show error
-        setError('Could not join queue. ' + (err.response?.data?.detail || err.message));
-        setLoading(false);
-      }
-    };
-
-    joinQueue();
-  }, [queueId]);
-
-  // --- Render Logic ---
-
+  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-5xl mb-4">😕</div>
-        <h1 className="text-2xl font-bold text-red-500 mb-2">Oops!</h1>
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()} className="mt-6 bg-blue-600 px-6 py-2 rounded-full">Try Again</button>
+      <div className="min-h-screen bg-gradient-to-b from-red-50 to-white flex items-center justify-center px-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Oops!</h1>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <button
+            onClick={joinQueue}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (loading) {
+  // Success state - Display ticket
+  if (ticket) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <header className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">You're in Line!</h1>
+            <p className="text-gray-600">Please wait for your turn</p>
+          </header>
+
+          {/* Main Ticket Display */}
+          <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
+            {/* Position Number - Big and Bold */}
+            <div className="mb-6">
+              <p className="text-gray-600 text-sm font-semibold uppercase tracking-wide mb-2">
+                Your Position
+              </p>
+              <div className="text-8xl font-bold text-blue-600 mb-2">
+                #{ticket.position_number}
+              </div>
+            </div>
+
+            {/* Status Badge */}
+            <div className="mb-6">
+              <span className={`inline-block px-6 py-3 rounded-full text-lg font-semibold ${getStatusColor(ticket.status)}`}>
+                {ticket.status === 'WAITING' && '⏳ Waiting'}
+                {ticket.status === 'CALLED' && '📢 You\'re Called!'}
+                {ticket.status === 'SERVING' && '🎯 Being Served'}
+                {ticket.status === 'COMPLETED' && '✅ Completed'}
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-200 my-6"></div>
+
+            {/* QR Code for Host Scanning */}
+            <div className="mb-6">
+              <p className="text-xs text-gray-600 uppercase tracking-wide mb-3 text-center">
+                Show this to host for verification
+              </p>
+              <div className="flex justify-center bg-white p-4 rounded-lg border-2 border-gray-200">
+                <QRCodeSVG value={ticket.id} size={200} level="H" />
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="text-sm text-gray-500 space-y-2">
+              <p>Queue ID: {queueId.substring(0, 8)}...</p>
+              <p>Ticket ID: {ticket.id.substring(0, 8)}...</p>
+              <p className="text-xs">Joined: {new Date(ticket.created_at).toLocaleTimeString()}</p>
+            </div>
+          </div>
+
+          {/* Real-time ETA Display */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-6 mb-6">
+            <h3 className="font-semibold text-gray-900 mb-4 text-center">Live Queue Status</h3>
+
+            {isSkipped() ? (
+              // Skipped User Warning
+              <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-4">
+                <div className="text-center">
+                  <div className="text-5xl mb-3">⚠️</div>
+                  <h4 className="text-xl font-bold text-red-900 mb-2">Position Skipped</h4>
+                  <p className="text-red-700 mb-3">
+                    The host has moved past your position.
+                  </p>
+                  <p className="text-sm text-red-600 font-semibold">
+                    Please see the host directly.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              // Normal Status Display
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-white rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">People Ahead</p>
+                  <p className="text-3xl font-bold text-purple-600">{getPeopleAhead()}</p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Estimated Wait</p>
+                  <p className="text-lg font-semibold text-purple-600">{calculateETA()}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Connection Status Indicator */}
+            <div className="text-center">
+              <span className={`inline-flex items-center text-xs ${
+                connectionStatus === 'connected' ? 'text-green-600' : 'text-gray-500'
+              }`}>
+                <span className={`w-2 h-2 rounded-full mr-2 ${
+                  connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                }`}></span>
+                {connectionStatus === 'connected' ? 'Live updates active' : 'Reconnecting...'}
+              </span>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
+            <h3 className="font-semibold text-blue-900 mb-2">What to do:</h3>
+            <ul className="text-blue-800 space-y-2 text-sm">
+              <li>✓ Keep this page open</li>
+              <li>✓ Updates automatically when position changes</li>
+              <li>✓ You'll see when it's your turn</li>
+            </ul>
+          </div>
+
+          {/* Refresh Note */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              Refreshing the page is safe - you'll keep your position
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const isSkipped = ticket.people_ahead < 0;
-
-  return (
-    <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
-      <Toaster position="top-center" />
-
-      <div className="w-full max-w-md flex justify-between items-center mb-8">
-        <h1 className="text-xl font-bold">Qode</h1>
-        <div className={`h-3 w-3 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-      </div>
-
-      <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-md text-center shadow-2xl border border-gray-700">
-
-        {ticket.status === 'COMPLETED' ? (
-          <>
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-3xl font-bold text-green-400 mb-2">You're In!</h2>
-            <p className="text-gray-400">Have fun!</p>
-          </>
-        ) : (
-          <>
-            <h2 className="text-gray-400 uppercase tracking-wider text-sm mb-2">Your Position</h2>
-            <div className="text-7xl font-bold text-blue-500 mb-2">#{ticket.position_number}</div>
-
-            <div className="my-6 border-t border-gray-700"></div>
-
-            {isSkipped ? (
-               <div className="bg-red-900/50 p-4 rounded-lg border border-red-500/50">
-                 <h3 className="text-red-400 font-bold text-lg mb-1">⚠️ Position Skipped</h3>
-                 <p className="text-sm text-red-200">Please see the host directly.</p>
-               </div>
-            ) : (
-               <>
-                 <div className="grid grid-cols-2 gap-4 mb-6">
-                   <div className="bg-gray-700/50 p-4 rounded-xl">
-                     <div className="text-2xl font-bold text-white">{ticket.people_ahead}</div>
-                     <div className="text-xs text-gray-400">People Ahead</div>
-                   </div>
-                   <div className="bg-gray-700/50 p-4 rounded-xl">
-                     <div className="text-2xl font-bold text-orange-400">{ticket.eta || 'Calculating...'}</div>
-                     <div className="text-xs text-gray-400">Est. Wait</div>
-                   </div>
-                 </div>
-
-                 <div className="flex flex-col items-center bg-white p-4 rounded-xl">
-                   <QRCodeSVG value={ticket.id} size={180} />
-                   <p className="text-gray-500 text-xs mt-2 font-mono">{ticket.id.substring(0, 8)}...</p>
-                 </div>
-                 <p className="text-gray-500 text-sm mt-4">Show this QR to the host</p>
-               </>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
+  return null;
 };
 
 export default GuestView;

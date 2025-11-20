@@ -189,7 +189,7 @@ async def verify_ticket(db: AsyncSession, ticket_id: str, queue_id: str) -> dict
 
     # Prepare broadcast data
     broadcast_data = {
-        "type": "update",
+        "type": "queue_update",
         "current_position": new_current_position,
         "avg_wait_time": new_avg
     }
@@ -240,7 +240,7 @@ async def mark_no_show(db: AsyncSession, ticket_id: str, queue_id: str) -> dict:
 
     # Broadcast current state (no position change)
     broadcast_data = {
-        "type": "update",
+        "type": "queue_update",
         "current_position": queue.current_position,
         "avg_wait_time": queue.avg_wait_time
     }

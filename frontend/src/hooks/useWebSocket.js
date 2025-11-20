@@ -23,7 +23,6 @@ const useWebSocket = (queueId) => {
     const host = import.meta.env.VITE_WS_URL || '192.168.1.11:8000';
     const wsUrl = `${protocol}//${host}/api/ws/${queueId}`;
 
-    console.log(`[WS] Connecting to ${wsUrl}...`);
     setConnectionStatus('connecting');
 
     try {
@@ -31,7 +30,6 @@ const useWebSocket = (queueId) => {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[WS] Connected successfully');
         setConnectionStatus('connected');
         reconnectAttemptsRef.current = 0; // Reset counter on successful connection
       };
@@ -39,20 +37,17 @@ const useWebSocket = (queueId) => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('[WS] Message received:', data);
           setLastMessage(data);
         } catch (error) {
           console.error('[WS] Failed to parse message:', error);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('[WS] Error:', error);
+      ws.onerror = () => {
         setConnectionStatus('error');
       };
 
       ws.onclose = () => {
-        console.log('[WS] Connection closed');
         setConnectionStatus('disconnected');
         wsRef.current = null;
 
@@ -73,8 +68,6 @@ const useWebSocket = (queueId) => {
       INITIAL_DELAY * Math.pow(2, reconnectAttemptsRef.current),
       MAX_RECONNECT_DELAY
     );
-
-    console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})...`);
 
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectAttemptsRef.current += 1;

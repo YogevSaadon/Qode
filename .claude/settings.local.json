@@ -34,7 +34,11 @@
       "Bash(start /B python main.py)",
       "Bash(start /B npm run dev -- --host --force)",
       "Bash(timeout 10 tail:*)",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Bash(if exist node_modules.vite rmdir /S /Q node_modules.vite)",
+      "Bash(del test.html)",
+      "Bash(tasklist:*)",
+      "Bash(timeout 3 powershell:*)"
     ],
     "deny": [],
     "ask": []

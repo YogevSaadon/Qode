@@ -137,7 +137,7 @@ async def join_queue(
 
         # Broadcast to all WebSocket clients that a new user joined
         await manager.broadcast(queue_id, {
-            "type": "update",
+            "type": "queue_update",
             "current_position": queue.current_position,
             "avg_wait_time": queue.avg_wait_time
         })

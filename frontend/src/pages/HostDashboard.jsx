@@ -27,12 +27,11 @@ const HostDashboard = () => {
   const [showPairingModal, setShowPairingModal] = useState(false);
 
   // WebSocket for real-time updates
-  const { lastMessage } = useWebSocket(queueData?.id);
+  const { lastMessage, connectionStatus } = useWebSocket(queueData?.id);
 
   // Listen for WebSocket updates
   useEffect(() => {
     if (lastMessage && lastMessage.type === 'queue_update' && queueData) {
-      console.log('[WS] Queue update received, refreshing data...');
       // Refresh both queue data and tickets
       loadQueue(queueData.id, queueData.host_token);
       fetchTickets(queueData.id, queueData.host_token);
