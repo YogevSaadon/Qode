@@ -131,6 +131,17 @@ async def join_queue(
             queue_id=queue_id,
             device_token=x_device_token
         )
+
+        # Fetch current queue state to broadcast
+        queue = await queue_service.get_queue_by_id(db, queue_id)
+
+        # Broadcast to all WebSocket clients that a new user joined
+        await manager.broadcast(queue_id, {
+            "type": "update",
+            "current_position": queue.current_position,
+            "avg_wait_time": queue.avg_wait_time
+        })
+
         return TicketResponse.model_validate(ticket)
 
     except ValueError as e:

@@ -7,6 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import QRScanner from '../components/QRScanner';
+import useWebSocket from '../hooks/useWebSocket';
 
 const HostDashboard = () => {
   const [queueCreated, setQueueCreated] = useState(false);
@@ -24,6 +25,20 @@ const HostDashboard = () => {
 
   // Mobile Pairing Modal
   const [showPairingModal, setShowPairingModal] = useState(false);
+
+  // WebSocket for real-time updates
+  const { lastMessage } = useWebSocket(queueData?.id);
+
+  // Listen for WebSocket updates
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'queue_update' && queueData) {
+      console.log('[WS] Queue update received, refreshing data...');
+      // Refresh both queue data and tickets
+      loadQueue(queueData.id, queueData.host_token);
+      fetchTickets(queueData.id, queueData.host_token);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMessage]); // Only depend on lastMessage to avoid infinite loop
 
   // Check if user already has a queue in localStorage OR URL params (auto-login)
   useEffect(() => {
