@@ -29,7 +29,11 @@
       "Bash(timeout 5 tail:*)",
       "Bash(timeout 8 tail:*)",
       "Bash(ipconfig:*)",
-      "Bash(timeout 2 tail:*)"
+      "Bash(timeout 2 tail:*)",
+      "Bash(npm run build:*)",
+      "Bash(start /B python main.py)",
+      "Bash(start /B npm run dev -- --host --force)",
+      "Bash(timeout 10 tail:*)"
     ],
     "deny": [],
     "ask": []

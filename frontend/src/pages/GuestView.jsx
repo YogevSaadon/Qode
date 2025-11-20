@@ -8,6 +8,19 @@ import { QRCodeSVG } from 'qrcode.react';
 import api from '../lib/api';
 import useWebSocket from '../hooks/useWebSocket';
 
+// UUID generator that works on HTTP (non-secure contexts)
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-HTTPS contexts
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 const GuestView = () => {
   const { queueId } = useParams();
   const [ticket, setTicket] = useState(null);
@@ -28,7 +41,7 @@ const GuestView = () => {
 
     if (!token) {
       // Generate new UUID for this device
-      token = crypto.randomUUID();
+      token = generateUUID();
       localStorage.setItem('qode_guest_token', token);
     }
 

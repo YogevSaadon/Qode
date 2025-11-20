@@ -1,60 +1,42 @@
-"""
-FastAPI application entry point.
-Configures CORS, middleware, and initializes the database.
-"""
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from config import settings
+from contextlib import asynccontextmanager
 from database import init_db
-from routes import router
+from routes import router as api_router
+import uvicorn
+import os
 
-
+# 1. Lifespan Manager (Startup/Shutdown events)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup and shutdown events.
-    Initializes database on startup.
-    """
-    # Startup
+    # Initialize DB tables on startup
     await init_db()
-    print(f"[OK] Database initialized at {settings.DATABASE_URL}")
     yield
-    # Shutdown (if needed)
 
+# 2. App Initialization
+app = FastAPI(title="Qode API", lifespan=lifespan)
 
-# Initialize FastAPI app
-app = FastAPI(
-    title=settings.APP_NAME,
-    debug=settings.DEBUG,
-    lifespan=lifespan
-)
+# 3. CRITICAL CORS SETUP (Allow All for Mobile Testing)
+# Explicitly allowing all origins to prevent blocking local network IPs
+origins = ["*"]
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(router, prefix="/api")
+# 4. Router Inclusion
+app.include_router(api_router, prefix="/api")
 
-
-# Health check endpoint
+# 5. Health Check Endpoint
 @app.get("/health")
 async def health_check():
-    """Basic health check endpoint."""
-    return {"status": "ok", "app": settings.APP_NAME}
+    return {"status": "ok", "app": "Qode"}
 
-
+# 6. Entry Point (Network Binding)
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG
-    )
+    # Listen on all interfaces (0.0.0.0) to allow mobile access
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
